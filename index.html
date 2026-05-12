@@ -1,0 +1,927 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>青竹汉字书写系统</title>
+
+<script src="https://unpkg.com/hanzi-writer@3.5/dist/hanzi-writer.min.js"></script>
+
+<style>
+:root{
+    --green:#5a7d61;
+    --bg:#f2f7f3;
+    --line:#dce6dd;
+}
+
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    touch-action:manipulation;
+}
+
+body{
+    font-family:"PingFang SC","Microsoft YaHei",sans-serif;
+    background:#e9ede9;
+    color:#333;
+    display:flex;
+    justify-content:center;
+    min-height:100vh;
+}
+
+.container{
+    width:100%;
+    max-width:700px;
+    min-height:100vh;
+    background:var(--bg);
+    padding:20px;
+}
+
+.hidden{
+    display:none !important;
+}
+
+.text-center{
+    text-align:center;
+}
+
+.btn{
+    padding:12px 20px;
+    border-radius:8px;
+    border:1px solid var(--green);
+    background:#fff;
+    color:var(--green);
+    font-size:16px;
+    font-weight:bold;
+    cursor:pointer;
+}
+
+.btn-fill{
+    background:var(--green);
+    color:#fff;
+}
+
+input,textarea{
+    width:100%;
+    border:1px solid #ccc;
+    border-radius:8px;
+    padding:12px;
+    font-size:16px;
+    margin-top:10px;
+}
+
+.task-card{
+    background:#fff;
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:15px;
+    margin-top:15px;
+}
+
+.student-item{
+    background:#f7faf7;
+    border-radius:8px;
+    padding:10px;
+    margin-top:10px;
+    line-height:1.8;
+    font-size:14px;
+}
+
+.writer-box{
+    width:300px;
+    height:300px;
+    margin:0 auto;
+    border:2px solid var(--green);
+    border-radius:10px;
+    background:#fff;
+    position:relative;
+    overflow:hidden;
+}
+
+.grid{
+    position:absolute;
+    inset:0;
+    pointer-events:none;
+    z-index:1;
+    background-image:
+    linear-gradient(to right,#e8ede9 1px,transparent 1px),
+    linear-gradient(to bottom,#e8ede9 1px,transparent 1px),
+    linear-gradient(45deg,transparent 49.5%,#e8ede9 50%,transparent 50.5%),
+    linear-gradient(-45deg,transparent 49.5%,#e8ede9 50%,transparent 50.5%);
+    background-size:50% 50%,50% 50%,100% 100%,100% 100%;
+}
+
+#writer-target{
+    position:absolute;
+    inset:0;
+    z-index:2;
+}
+
+.progress{
+    width:100%;
+    height:6px;
+    background:#ddd;
+    border-radius:10px;
+    overflow:hidden;
+    margin-top:5px;
+}
+
+.progress-bar{
+    height:100%;
+    width:0%;
+    background:var(--green);
+}
+
+.flex{
+    display:flex;
+    gap:10px;
+    justify-content:center;
+    margin-top:20px;
+}
+
+.modal{
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,.6);
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    z-index:999;
+    padding:20px;
+}
+
+.modal-box{
+    width:100%;
+    max-width:420px;
+    background:#fff;
+    border-radius:12px;
+    padding:25px;
+}
+
+.student-mode #view-admin{
+    display:none !important;
+}
+
+.student-mode .admin-only{
+    display:none !important;
+}
+
+@media(max-width:400px){
+    .writer-box{
+        width:260px;
+        height:260px;
+    }
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+    <!-- 默认学生登录 -->
+    <div id="view-login">
+
+        <div class="text-center" style="margin-top:60px;">
+
+            <h2 style="color:var(--green);">
+                青竹汉字教学系统
+            </h2>
+
+            <p style="margin:25px 0;color:#777;">
+                请输入学生信息开始练习
+            </p>
+
+        </div>
+
+        <div id="student-login-box">
+
+            <input id="stu-name" placeholder="学生姓名" />
+
+            <input id="stu-class" placeholder="班级（例如：2A）" />
+
+            <button
+                class="btn btn-fill"
+                style="width:100%;margin-top:12px;"
+                onclick="startPractice()">
+                开始练习
+            </button>
+
+        </div>
+
+        <div class="admin-only" style="margin-top:30px;text-align:center;">
+
+            <button class="btn" onclick="enterAdmin()">
+                教师管理入口
+            </button>
+
+        </div>
+
+    </div>
+
+    <!-- 教师后台 -->
+    <div id="view-admin" class="hidden">
+
+        <h2 style="color:var(--green);margin-bottom:15px;">
+            教师管理后台
+        </h2>
+
+        <textarea
+            id="task-input"
+            placeholder="输入汉字，例如：你好中国">
+        </textarea>
+
+        <button
+            class="btn btn-fill"
+            style="width:100%;margin-top:12px;"
+            onclick="addTask()">
+            发布练习
+        </button>
+
+        <div id="task-list"></div>
+
+        <button
+            class="btn"
+            style="width:100%;margin-top:20px;border:none;"
+            onclick="location.href = window.location.origin + window.location.pathname">
+            退出后台
+        </button>
+
+    </div>
+
+    <!-- 学生练习 -->
+    <div id="view-practice" class="hidden text-center">
+
+        <div style="margin-bottom:15px;">
+
+            <div id="progress-text"></div>
+
+            <div class="progress">
+                <div id="progress-bar" class="progress-bar"></div>
+            </div>
+
+        </div>
+
+        <div
+            id="char-display"
+            style="font-size:42px;font-weight:bold;color:var(--green);margin-bottom:10px;">
+        </div>
+
+        <div
+            id="step-label"
+            style="font-size:14px;color:#666;margin-bottom:12px;">
+        </div>
+
+        <div class="writer-box">
+
+            <div class="grid"></div>
+
+            <div id="writer-target"></div>
+
+        </div>
+
+        <div class="flex">
+
+            <button
+                id="btn-replay"
+                class="btn"
+                onclick="replayCharacter()">
+                重播演示
+            </button>
+
+            <button
+                id="btn-next"
+                class="btn btn-fill hidden"
+                onclick="nextStep()">
+                下一步
+            </button>
+
+        </div>
+
+    </div>
+
+</div>
+
+<!-- 成绩弹窗 -->
+<div id="result-modal" class="modal hidden">
+
+    <div class="modal-box">
+
+        <h2 style="color:var(--green);text-align:center;">
+            练习完成 🎉
+        </h2>
+
+        <div
+            id="result-content"
+            style="margin:20px 0;line-height:2;">
+        </div>
+
+        <button
+            class="btn btn-fill"
+            style="width:100%;"
+            onclick="location.reload()">
+            提交成绩并关闭
+        </button>
+
+    </div>
+
+</div>
+
+<script>
+
+/* =========================
+   数据库
+========================= */
+
+const DB_TASKS = 'HANZI_TASKS_GITHUB_V1';
+const DB_SCORES = 'HANZI_SCORES_GITHUB_V1';
+
+let tasks = JSON.parse(localStorage.getItem(DB_TASKS) || '[]');
+let scores = JSON.parse(localStorage.getItem(DB_SCORES) || '[]');
+
+/* =========================
+   全局状态
+========================= */
+
+let currentTask = null;
+let writer = null;
+
+let charIndex = 0;
+let stepIndex = 0;
+
+let totalMistakes = 0;
+let wordMistakes = 0;
+
+/* =========================
+   URL 参数
+========================= */
+
+const params = new URLSearchParams(window.location.search);
+
+const taskID = params.get('taskID');
+const adminMode = params.get('admin');
+
+/* =========================
+   页面初始化（严格优先级）
+========================= */
+
+window.onload = () => {
+
+    /*
+    第一优先级：
+    只要有 taskID
+    强制学生模式
+    */
+
+    if(taskID){
+
+        document.body.classList.add('student-mode');
+
+        currentTask = tasks.find(t => t.id === taskID);
+
+        if(!currentTask){
+
+            alert('找不到该作业');
+
+            showView('view-login');
+
+            return;
+        }
+
+        showView('view-login');
+
+        return;
+    }
+
+    /*
+    第二优先级：
+    admin=true
+    */
+
+    if(adminMode === 'true'){
+
+        const pw = prompt('请输入教师密码');
+
+        if(pw === '1998'){
+
+            showView('view-admin');
+
+            renderTasks();
+
+            return;
+
+        }else{
+
+            alert('密码错误');
+
+            location.href =
+                window.location.origin +
+                window.location.pathname;
+
+            return;
+        }
+    }
+
+    /*
+    第三优先级：
+    默认学生登录
+    */
+
+    showView('view-login');
+
+};
+
+/* =========================
+   页面切换
+========================= */
+
+function showView(id){
+
+    document.getElementById('view-login')
+    .classList.add('hidden');
+
+    document.getElementById('view-admin')
+    .classList.add('hidden');
+
+    document.getElementById('view-practice')
+    .classList.add('hidden');
+
+    document.getElementById(id)
+    .classList.remove('hidden');
+
+}
+
+/* =========================
+   教师入口
+========================= */
+
+function enterAdmin(){
+
+    const url =
+        window.location.origin +
+        window.location.pathname +
+        '?admin=true';
+
+    location.href = url;
+
+}
+
+/* =========================
+   添加作业
+========================= */
+
+function addTask(){
+
+    const value = document.getElementById('task-input')
+    .value
+    .trim();
+
+    if(!value){
+
+        alert('请输入汉字');
+        return;
+    }
+
+    const chars = value
+    .split('')
+    .filter(c => /[\u4e00-\u9fa5]/.test(c));
+
+    if(chars.length === 0){
+
+        alert('请输入有效汉字');
+        return;
+    }
+
+    const task = {
+
+        id:'T' + Date.now().toString(36).toUpperCase(),
+
+        chars,
+
+        date:new Date().toLocaleString()
+
+    };
+
+    tasks.push(task);
+
+    localStorage.setItem(DB_TASKS, JSON.stringify(tasks));
+
+    document.getElementById('task-input').value = '';
+
+    renderTasks();
+
+}
+
+/* =========================
+   渲染后台
+========================= */
+
+function renderTasks(){
+
+    const list = document.getElementById('task-list');
+
+    list.innerHTML = tasks
+    .slice()
+    .reverse()
+    .map(task => {
+
+        const taskScores =
+            scores.filter(s => s.tid === task.id);
+
+        const studentsHTML =
+            taskScores.length > 0
+            ?
+            taskScores.map(s => `
+                <div class="student-item">
+                    <strong>学生：</strong>${s.name}<br>
+                    <strong>班级：</strong>${s.cls}<br>
+                    <strong>成绩：</strong>${s.score} 分<br>
+                    <strong>提交时间：</strong>${s.time}
+                </div>
+            `).join('')
+            :
+            `<div style="margin-top:10px;color:#999;">
+                暂无学生提交
+            </div>`;
+
+        return `
+        <div class="task-card">
+
+            <div style="font-size:20px;color:var(--green);font-weight:bold;">
+                ${task.chars.join('')}
+            </div>
+
+            <div style="margin-top:6px;color:#777;font-size:14px;">
+                发布时间：${task.date}
+            </div>
+
+            <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;">
+
+                <button
+                    class="btn"
+                    style="padding:6px 10px;font-size:12px;"
+                    onclick="copyLink('${task.id}')">
+                    复制学生链接
+                </button>
+
+                <button
+                    class="btn"
+                    style="padding:6px 10px;font-size:12px;color:red;border-color:red;"
+                    onclick="deleteTask('${task.id}')">
+                    删除
+                </button>
+
+            </div>
+
+            <div style="margin-top:15px;">
+
+                <strong>
+                    学生提交记录（${taskScores.length}）
+                </strong>
+
+                ${studentsHTML}
+
+            </div>
+
+        </div>
+        `;
+
+    }).join('');
+
+}
+
+/* =========================
+   GitHub Pages 分享链接
+========================= */
+
+function copyLink(id){
+
+    const url =
+        window.location.origin +
+        window.location.pathname +
+        '?taskID=' + id;
+
+    navigator.clipboard.writeText(url)
+    .then(() => {
+
+        alert('学生练习链接已复制');
+
+    });
+
+}
+
+/* =========================
+   删除任务
+========================= */
+
+function deleteTask(id){
+
+    if(confirm('确定删除该作业吗？')){
+
+        tasks = tasks.filter(t => t.id !== id);
+
+        localStorage.setItem(DB_TASKS, JSON.stringify(tasks));
+
+        renderTasks();
+
+    }
+
+}
+
+/* =========================
+   学生开始
+========================= */
+
+function startPractice(){
+
+    if(!currentTask){
+
+        alert('当前没有作业');
+
+        return;
+    }
+
+    const name =
+        document.getElementById('stu-name')
+        .value
+        .trim();
+
+    if(!name){
+
+        alert('请输入姓名');
+
+        return;
+    }
+
+    showView('view-practice');
+
+    loadCharacter();
+
+}
+
+/* =========================
+   加载汉字
+========================= */
+
+function loadCharacter(){
+
+    const char = currentTask.chars[charIndex];
+
+    stepIndex = 0;
+
+    wordMistakes = 0;
+
+    document.getElementById('char-display')
+    .innerText = char;
+
+    document.getElementById('progress-text')
+    .innerText =
+        `练习进度：${charIndex + 1} / ${currentTask.chars.length}`;
+
+    document.getElementById('progress-bar')
+    .style.width =
+        ((charIndex + 1) / currentTask.chars.length * 100) + '%';
+
+    initWriter();
+
+}
+
+/* =========================
+   初始化书写
+========================= */
+
+function initWriter(){
+
+    const char = currentTask.chars[charIndex];
+
+    document.getElementById('writer-target').innerHTML = '';
+
+    const nextBtn = document.getElementById('btn-next');
+
+    const replayBtn = document.getElementById('btn-replay');
+
+    nextBtn.classList.add('hidden');
+
+    const size =
+        window.innerWidth < 400 ? 260 : 300;
+
+    const config = {
+
+        width:size,
+        height:size,
+
+        padding:20,
+
+        strokeColor:'#333',
+
+        radicalColor:'#5a7d61',
+
+        drawingWidth:20,
+
+        drawingThreshold:40,
+
+        leniency:1,
+
+        strokeAnimationSpeed:1,
+
+        delayBetweenStrokes:200
+
+    };
+
+    /* 演示 */
+    if(stepIndex === 0){
+
+        document.getElementById('step-label')
+        .innerText = '第一步：观察笔顺演示';
+
+        replayBtn.classList.remove('hidden');
+
+        writer = HanziWriter.create(
+            'writer-target',
+            char,
+            {
+                ...config,
+                showCharacter:true,
+                showOutline:true
+            }
+        );
+
+        writer.animateCharacter({
+
+            onComplete(){
+
+                nextBtn.innerText = '进入描红';
+
+                nextBtn.classList.remove('hidden');
+
+            }
+
+        });
+
+    }
+
+    /* 描红 */
+    else if(stepIndex === 1){
+
+        document.getElementById('step-label')
+        .innerText = '第二步：请跟着提示描红';
+
+        replayBtn.classList.add('hidden');
+
+        writer = HanziWriter.create(
+            'writer-target',
+            char,
+            {
+                ...config,
+                showCharacter:true,
+                showOutline:true
+            }
+        );
+
+        writer.quiz({
+
+            onMistake(){
+
+                wordMistakes++;
+                totalMistakes++;
+
+            },
+
+            onComplete(){
+
+                nextBtn.innerText = '进入默写';
+
+                nextBtn.classList.remove('hidden');
+
+            }
+
+        });
+
+    }
+
+    /* 默写 */
+    else{
+
+        document.getElementById('step-label')
+        .innerText = '第三步：请凭记忆默写';
+
+        replayBtn.classList.add('hidden');
+
+        writer = HanziWriter.create(
+            'writer-target',
+            char,
+            {
+                ...config,
+                showCharacter:false,
+                showOutline:false
+            }
+        );
+
+        writer.quiz({
+
+            onMistake(){
+
+                wordMistakes++;
+                totalMistakes++;
+
+            },
+
+            onComplete(){
+
+                charIndex++;
+
+                if(charIndex < currentTask.chars.length){
+
+                    loadCharacter();
+
+                }else{
+
+                    finishPractice();
+
+                }
+
+            }
+
+        });
+
+    }
+
+}
+
+/* =========================
+   下一步
+========================= */
+
+function nextStep(){
+
+    stepIndex++;
+
+    initWriter();
+
+}
+
+/* =========================
+   重播
+========================= */
+
+function replayCharacter(){
+
+    if(writer){
+
+        writer.animateCharacter();
+
+    }
+
+}
+
+/* =========================
+   完成
+========================= */
+
+function finishPractice(){
+
+    const score =
+        Math.max(0, 100 - totalMistakes * 5);
+
+    const name =
+        document.getElementById('stu-name').value;
+
+    const cls =
+        document.getElementById('stu-class').value;
+
+    document.getElementById('result-content')
+    .innerHTML = `
+        <strong>学生：</strong>${name}<br>
+        <strong>班级：</strong>${cls}<br>
+        <strong>成绩：</strong>
+        <span style="font-size:26px;color:var(--green);">
+            ${score} 分
+        </span>
+    `;
+
+    document.getElementById('result-modal')
+    .classList.remove('hidden');
+
+    scores.push({
+
+        tid:currentTask.id,
+
+        name,
+
+        cls,
+
+        score,
+
+        time:new Date().toLocaleString()
+
+    });
+
+    localStorage.setItem(DB_SCORES, JSON.stringify(scores));
+
+}
+
+</script>
+
+</body>
+</html>
