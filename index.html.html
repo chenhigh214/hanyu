@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>汉字练习系统</title>
+
+<script src="https://cdn.jsdelivr.net/npm/hanzi-writer@latest/dist/hanzi-writer.min.js"></script>
+
+<style>
+*{
+  box-sizing:border-box;
+  font-family:"Microsoft YaHei",sans-serif;
+}
+body{
+  margin:0;
+  background:#f3f8f6;
+  color:#333;
+}
+header{
+  background:#5b8c7d;
+  color:white;
+  padding:14px 20px;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+}
+header h1{
+  margin:0;
+  font-size:22px;
+}
+button{
+  border:none;
+  background:#5b8c7d;
+  color:white;
+  padding:10px 16px;
+  border-radius:10px;
+  cursor:pointer;
+  font-size:16px;
+}
+button:hover{
+  opacity:.9;
+}
+input, textarea, select{
+  width:100%;
+  padding:10px;
+  border-radius:10px;
+  border:1px solid #ccc;
+  margin-top:8px;
+  margin-bottom:14px;
+  font-size:16px;
+}
+.container{
+  max-width:1100px;
+  margin:auto;
+  padding:20px;
+}
+.card{
+  background:white;
+  border-radius:18px;
+  padding:20px;
+  box-shadow:0 4px 10px rgba(0,0,0,.08);
+  margin-bottom:20px;
+}
+.hidden{
+  display:none;
+}
+
+/* 米字格 */
+.grid-box{
+  width:320px;
+  height:320px;
+  margin:auto;
+  position:relative;
+  background:
+    linear-gradient(to right, transparent 49.5%, #d5d5d5 50%, transparent 50.5%),
+    linear-gradient(to bottom, transparent 49.5%, #d5d5d5 50%, transparent 50.5%),
+    linear-gradient(45deg, transparent 49.5%, #ececec 50%, transparent 50.5%),
+    linear-gradient(-45deg, transparent 49.5%, #ececec 50%, transparent 50.5%);
+  border:3px solid #888;
+  border-radius:8px;
+}
+#writer{
+  width:100%;
+  height:100%;
+}
+
+.center{
+  text-align:center;
+}
+
+.big{
+  font-size:28px;
+  font-weight:bold;
+}
+
+.pinyin{
+  font-size:32px;
+  color:#5b8c7d;
+  margin-bottom:14px;
+}
+
+.flex{
+  display:flex;
+  gap:12px;
+  flex-wrap:wrap;
+}
+
+.link-box{
+  background:#f1f7f4;
+  padding:10px;
+  border-radius:10px;
+  word-break:break-all;
+}
+
+table{
+  width:100%;
+  border-collapse:collapse;
+}
+th, td{
+  border:1px solid #ddd;
+  padding:10px;
+  text-align:center;
+}
+th{
+  background:#e6f1ed;
+}
+
+.dialog{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.45);
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  z-index:999;
+}
+
+.dialog-content{
+  background:white;
+  width:90%;
+  max-width:420px;
+  border-radius:18px;
+  padding:24px;
+}
+
+.score-box{
+  font-size:20px;
+  margin-top:10px;
+  color:#b65c00;
+}
+
+@media (max-width:768px){
+  .grid-box{
+    width:280px;
+    height:280px;
+  }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>✍ 汉字练习系统</h1>
+  <button onclick="openAdmin()">管理</button>
+</header>
+
+<div class="container">
+
+  <!-- 教师端 -->
+  <div id="teacherPanel" class="hidden">
+
+    <div class="card">
+      <h2>教师配置</h2>
+
+      <label>输入汉字与拼音（格式：汉:han,字:zi）</label>
+      <textarea id="hanziInput" rows="4">汉:han,字:zi</textarea>
+
+      <button onclick="generateLink()">生成学生练习链接</button>
+
+      <div id="generatedLink" class="link-box" style="margin-top:15px;"></div>
+    </div>
+
+    <div class="card">
+      <h2>成绩管理</h2>
+
+      <label>班级筛选</label>
+      <select id="classFilter" onchange="renderScores()">
+        <option value="全部">全部</option>
+      </select>
+
+      <table>
+        <thead>
+          <tr>
+            <th>姓名</th>
+            <th>班级</th>
+            <th>平均分</th>
+            <th>总耗时</th>
+            <th>练习日期</th>
+          </tr>
+        </thead>
+        <tbody id="scoreTable"></tbody>
+      </table>
+    </div>
+
+  </div>
+
+  <!-- 学生端 -->
+  <div id="studentPanel" class="hidden">
+
+    <div class="card center">
+      <div class="pinyin" id="pinyin"></div>
+
+      <div class="grid-box">
+        <div id="writer"></div>
+      </div>
+
+      <div class="score-box" id="scoreInfo"></div>
+
+      <div style="margin-top:20px;" class="flex center">
+        <button onclick="demo()">示范</button>
+        <button onclick="resetPractice()">重写</button>
+      </div>
+
+      <div style="margin-top:20px;" id="progress"></div>
+    </div>
+
+  </div>
+
+</div>
+
+<!-- 学生信息弹窗 -->
+<div class="dialog" id="studentDialog">
+  <div class="dialog-content">
+    <h2>开始练习</h2>
+
+    <label>英文姓名</label>
+    <input type="text" id="studentName" placeholder="例如：Tom"/>
+
+    <label>班级</label>
+    <input type="text" id="studentClass" placeholder="例如：Class A"/>
+
+    <button style="width:100%;" onclick="startPractice()">进入练习</button>
+  </div>
+</div>
+
+<script>
+const PASSWORD = "1998";
+
+let chars = [];
+let currentIndex = 0;
+let currentPhase = 1;
+let writer = null;
+
+let student = {
+  name:"",
+  className:"",
+};
+
+let totalScore = 0;
+let totalTime = 0;
+let startTime = 0;
+
+let currentBlankScore = 100;
+
+function getQuery(name){
+  const url = new URL(window.location.href);
+  return url.searchParams.get(name);
+}
+
+function encodeData(str){
+  return btoa(unescape(encodeURIComponent(str)));
+}
+
+function decodeData(str){
+  return decodeURIComponent(escape(atob(str)));
+}
+
+/* 路由 */
+window.onload = () => {
+  const data = getQuery("data");
+
+  if(data){
+    try{
+      const decoded = decodeData(data);
+
+      chars = decoded.split(",").map(item=>{
+        const [hanzi,pinyin] = item.split(":");
+        return { hanzi, pinyin };
+      });
+
+      document.getElementById("studentPanel").classList.remove("hidden");
+
+    }catch(e){
+      alert("数据解析失败");
+    }
+
+  }else{
+    document.getElementById("studentDialog").style.display="none";
+  }
+};
+
+function openAdmin(){
+  const pwd = prompt("请输入管理密码");
+
+  if(pwd === PASSWORD){
+    document.getElementById("teacherPanel").classList.remove("hidden");
+    loadClasses();
+    renderScores();
+    window.scrollTo(0,document.body.scrollHeight);
+  }else{
+    alert("密码错误");
+  }
+}
+
+/* 教师生成链接 */
+function generateLink(){
+  const value = document.getElementById("hanziInput").value.trim();
+
+  if(!value){
+    alert("请输入内容");
+    return;
+  }
+
+  const encoded = encodeData(value);
+
+  const link = `${location.origin}${location.pathname}?data=${encoded}`;
+
+  document.getElementById("generatedLink").innerHTML = `
+    <a href="${link}" target="_blank">${link}</a>
+  `;
+}
+
+/* 学生开始 */
+function startPractice(){
+
+  const name = document.getElementById("studentName").value.trim();
+  const cls = document.getElementById("studentClass").value.trim();
+
+  if(!name || !cls){
+    alert("请填写完整");
+    return;
+  }
+
+  student.name = name;
+  student.className = cls;
+
+  document.getElementById("studentDialog").style.display="none";
+
+  totalScore = 0;
+  totalTime = 0;
+
+  currentIndex = 0;
+
+  loadCharacter();
+}
+
+/* 加载字 */
+function loadCharacter(){
+
+  if(currentIndex >= chars.length){
+    finishPractice();
+    return;
+  }
+
+  currentPhase = 1;
+
+  const current = chars[currentIndex];
+
+  document.getElementById("pinyin").innerText = current.pinyin;
+
+  document.getElementById("scoreInfo").innerText = "阶段一：描红跟写";
+
+  document.getElementById("progress").innerText =
+    `第 ${currentIndex + 1} / ${chars.length} 个字`;
+
+  document.getElementById("writer").innerHTML = "";
+
+  writer = HanziWriter.create("writer", current.hanzi, {
+    width:320,
+    height:320,
+    padding:10,
+    showOutline:true,
+    strokeAnimationSpeed:1,
+    delayBetweenStrokes:300,
+    radicalColor:"#5b8c7d",
+    strokeColor:"#222",
+    outlineColor:"#d7d7d7",
+  });
+
+  startTime = Date.now();
+
+  startTracingQuiz();
+}
+
+/* 描红阶段 */
+function startTracingQuiz(){
+
+  writer.quiz({
+    leniency:0.8,
+    showHintAfterMisses:1,
+    highlightOnComplete:true,
+
+    onMistake: function(){
+      document.getElementById("scoreInfo").innerText =
+        "描红错误，请按正确笔顺书写";
+    },
+
+    onComplete: function(){
+      enterBlankPhase();
+    }
+  });
+}
+
+/* 进入默写 */
+function enterBlankPhase(){
+
+  currentPhase = 2;
+
+  currentBlankScore = 100;
+
+  document.getElementById("scoreInfo").innerText =
+    "阶段二：记忆临写（当前 100 分）";
+
+  const current = chars[currentIndex];
+
+  document.getElementById("writer").innerHTML = "";
+
+  writer = HanziWriter.create("writer", current.hanzi, {
+    width:320,
+    height:320,
+    padding:10,
+    showOutline:false,
+    showCharacter:false,
+    strokeColor:"#111",
+  });
+
+  writer.quiz({
+    leniency:0.8,
+
+    onMistake:function(){
+      currentBlankScore -= 5;
+
+      if(currentBlankScore < 0){
+        currentBlankScore = 0;
+      }
+
+      document.getElementById("scoreInfo").innerText =
+        `阶段二：记忆临写（当前 ${currentBlankScore} 分）`;
+    },
+
+    onComplete:function(){
+
+      if(currentBlankScore < 60){
+
+        alert("未达标，请重新进行该字的描红练习");
+
+        loadCharacter();
+
+        return;
+      }
+
+      const cost = Math.floor((Date.now() - startTime)/1000);
+
+      totalTime += cost;
+
+      totalScore += currentBlankScore;
+
+      currentIndex++;
+
+      loadCharacter();
+    }
+  });
+}
+
+/* 示范 */
+function demo(){
+  if(writer){
+    writer.animateCharacter();
+  }
+}
+
+/* 重写 */
+function resetPractice(){
+  loadCharacter();
+}
+
+/* 完成 */
+function finishPractice(){
+
+  const avg = Math.round(totalScore / chars.length);
+
+  const result = {
+    name: student.name,
+    className: student.className,
+    avg,
+    totalTime,
+    date: new Date().toLocaleString()
+  };
+
+  let data = JSON.parse(localStorage.getItem("hanziScores") || "[]");
+
+  data.push(result);
+
+  localStorage.setItem("hanziScores", JSON.stringify(data));
+
+  alert(`
+练习完成！
+
+姓名：${student.name}
+班级：${student.className}
+最终总分：${avg}
+总耗时：${totalTime} 秒
+  `);
+
+  location.reload();
+}
+
+/* 成绩表 */
+function renderScores(){
+
+  const table = document.getElementById("scoreTable");
+
+  table.innerHTML = "";
+
+  const filter = document.getElementById("classFilter").value;
+
+  let data = JSON.parse(localStorage.getItem("hanziScores") || "[]");
+
+  if(filter !== "全部"){
+    data = data.filter(i=>i.className === filter);
+  }
+
+  data.reverse().forEach(item=>{
+
+    table.innerHTML += `
+      <tr>
+        <td>${item.name}</td>
+        <td>${item.className}</td>
+        <td>${item.avg}</td>
+        <td>${item.totalTime} 秒</td>
+        <td>${item.date}</td>
+      </tr>
+    `;
+  });
+}
+
+/* 班级列表 */
+function loadClasses(){
+
+  const data = JSON.parse(localStorage.getItem("hanziScores") || "[]");
+
+  const select = document.getElementById("classFilter");
+
+  const classes = [...new Set(data.map(i=>i.className))];
+
+  select.innerHTML = `<option value="全部">全部</option>`;
+
+  classes.forEach(cls=>{
+    select.innerHTML += `<option value="${cls}">${cls}</option>`;
+  });
+}
+</script>
+
+</body>
+</html>
